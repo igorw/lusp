@@ -32,5 +32,3 @@ while (null !== ($expr = read())) {
     list($val, $env) = evaluate($expr, $env);
     print_val($val);
 }
-
-var_dump($expr);
