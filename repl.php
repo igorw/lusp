@@ -4,6 +4,14 @@ namespace igorw\lusp;
 
 require 'lusp.php';
 
+// terrible example
+//
+// > ["define", "a", "1"]
+// NULL
+// > "a"
+// float(1)
+// >
+
 function read() {
     echo '> ';
     $line = trim(fgets(STDIN));
