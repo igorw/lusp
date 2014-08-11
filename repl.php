@@ -6,6 +6,8 @@ require 'lusp.php';
 
 // terrible example
 //
+// > ["+", "1", "2"]
+// float(3)
 // > ["define", "a", "1"]
 // NULL
 // > "a"
