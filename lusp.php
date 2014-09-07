@@ -2,29 +2,29 @@
 
 namespace igorw\lusp;
 
-// all functions return a pair of [val, env]
+// continuation k takes a pair of [val, env]
 
-function evaluate($expr, $env = []) {
+function evaluate($expr, $env, callable $k) {
     if (is_string($expr)) {
         if (is_numeric($expr)) {
             $val = (float) $expr;
-            return [$val, $env];
+            return $k([$val, $env]);
         }
 
         if ('true' === $expr) {
-            return [true, $env];
+            return $k([true, $env]);
         }
 
         if ('false' === $expr) {
-            return [false, $env];
+            return $k([false, $env]);
         }
 
         if ('null' === $expr) {
-            return [null, $env];
+            return $k([null, $env]);
         }
 
         $var = $expr;
-        return [$env[$var], $env];
+        return $k([$env[$var], $env]);
     }
 
     $fn = array_shift($expr);
@@ -32,61 +32,97 @@ function evaluate($expr, $env = []) {
 
     if ('define' === $fn) {
         list($var, $val) = $args;
-        list($val, $env) = evaluate($val, $env);
-        $env = array_merge($env, [$var => $val]);
-        return [null, $env];
+        return evaluate($val, $env, function ($tuple) use ($k, $env, $var) {
+            list($val, $env) = $tuple;
+            $env = array_merge($env, [$var => $val]);
+            return $k([null, $env]);
+        });
     }
 
     if ('lambda' === $fn) {
         list($lambda_args, $code) = $args;
         $closure = ['closure', $lambda_args, $code, $env];
-        return [$closure, $env];
+        return $k([$closure, $env]);
     }
 
     if ('if' === $fn) {
         list($cond, $then, $else) = $args;
-        $cond = evaluate($cond, $env)[0];
-        if ($cond === true) {
-            $val = evaluate($then, $env)[0];
-        } else {
-            $val = evaluate($else, $env)[0];
-        }
-        return [$val, $env];
+        return evaluate($cond, $env, function ($tuple) use ($k, $env, $then, $else) {
+            $cond = $tuple[0];
+            $branch = ($cond === true) ? $then : $else;
+            return evaluate($branch, $env, function ($tuple) use ($k, $env) {
+                $val = $tuple[0];
+                return $k([$val, $env]);
+            });
+        });
     }
 
-    $fn = evaluate($fn, $env)[0];
-    $args = array_map(function ($arg) use ($env) { return evaluate($arg, $env)[0]; }, $args);
-    return apply($fn, $args, $env);
+    return evaluate($fn, $env, function ($tuple) use ($env, $args, $k) {
+        $fn = $tuple[0];
+        return array_map_continuation(
+            function ($arg, $k) use ($env) {
+                return evaluate($arg, $env, function ($tuple) use ($k) {
+                    $val = $tuple[0];
+                    return $k($val);
+                });
+            },
+            $args,
+            function ($args) use ($fn, $env, $k) {
+                return apply($fn, $args, $env, $k);
+            }
+        );
+    });
 }
 
-function apply($fn, $args, $env) {
+function array_map_continuation($fn, $xs, $k) {
+    if (count($xs) === 0) {
+        return $k([]);
+    }
+    $x = array_shift($xs);
+    return $fn($x, function ($x) use ($fn, $xs, $k) {
+        return array_map_continuation($fn, $xs, function ($xs) use ($k, $x) {
+            array_unshift($xs, $x);
+            return $k($xs);
+        });
+    });
+}
+
+function apply($fn, $args, $env, callable $k) {
     list($_, $lambda_args, $code, $closure_env) = $fn;
 
     // builtin
     if (is_callable($code)) {
-        return $code($args, $env);
+        return $code($args, $env, $k);
     }
 
     $env = array_merge($env, $closure_env);
     $env = array_merge($env, array_combine($lambda_args, $args));
 
-    return evaluate_code($code, $env);
+    return evaluate_code($code, $env, $k);
 }
 
-function evaluate_code($code, $env = []) {
-    foreach ($code as $expr) {
-        list($val, $env) = evaluate($expr, $env);
+function evaluate_code($code, $env, callable $k) {
+    if (count($code) === 0) {
+        return $k([null, $env]);
     }
-    return [$val, $env];
+
+    $expr = array_shift($code);
+    return evaluate($expr, $env, function ($tuple) use ($k, $code) {
+        list($val, $env) = $tuple;
+        if (count($code) === 0) {
+            return $k([$val, $env]);
+        }
+        return evaluate_code($code, $env, $k);
+    });
 }
 
 function primitive($fn) {
     return [
         'closure',
         null,
-        function ($args, $env) use ($fn) {
+        function ($args, $env, $k) use ($fn) {
             $val = call_user_func_array($fn, $args);
-            return [$val, $env];
+            return $k([$val, $env]);
         },
         [],
     ];

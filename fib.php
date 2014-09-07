@@ -19,4 +19,6 @@ $code = [
     ['fib', '12'],
 ];
 
-var_dump(evaluate_code($code, $env)[0]);
+// var_dump(evaluate_code(['2'], $env, function ($x) { return $x; })[0]);
+// var_dump(evaluate_code([['+', '1', '2']], $env, function ($x) { return $x; })[0]);
+var_dump(evaluate_code($code, $env, function ($x) { return $x; })[0]);
