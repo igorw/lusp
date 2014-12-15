@@ -28,8 +28,11 @@ $env = [
 ];
 
 $code = [
-    ['assign-var', ['quote', 'foo'], '12'],
-    ['read-var', ['quote', 'foo']],
+    ['define', 'foo', ['quote', 'this value is going to be the dynamic variable name']],
+    ['assign-var', 'foo', '12'],
+    ['read-var', 'foo'],
 ];
 
-var_dump(evaluate_code($code, $env)[0]);
+list($val, $env) = evaluate_code($code, $env);
+
+var_dump($val, array_keys($env));
