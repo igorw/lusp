@@ -43,6 +43,18 @@ function evaluate($expr, $env = []) {
         return [$closure, $env];
     }
 
+    if ('assign-var' === $fn) {
+        list($var, $code) = $args;
+        $env[$var] = evaluate($code, $env)[0];
+        return [null, $env];
+    }
+
+    if ('read-var' === $fn) {
+        list($var) = $args;
+        $val = $env[$var];
+        return [$val, $env];
+    }
+
     if ('if' === $fn) {
         list($cond, $then, $else) = $args;
         $cond = evaluate($cond, $env)[0];
