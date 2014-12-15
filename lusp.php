@@ -31,8 +31,8 @@ function evaluate($expr, $env = []) {
     $args = $expr;
 
     if ('define' === $fn) {
-        list($var, $val) = $args;
-        list($val, $env) = evaluate($val, $env);
+        list($var, $code) = $args;
+        list($val, $env) = evaluate($code, $env);
         $env = array_merge($env, [$var => $val]);
         return [null, $env];
     }
